@@ -1,0 +1,14 @@
+pandas>=1.5
+numpy
+scipy
+statsmodels
+seaborn
+matplotlib
+spacy>=3.0
+nltk
+gensim
+wordfreq
+python-udpipe
+jupyterlab
+tqdm
+pytest
