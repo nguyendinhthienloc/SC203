@@ -25,7 +25,7 @@ from .pos_tools import tokenize_and_pos
 from .features import compute_basic_metrics, compute_pos_features
 from .nominalization import analyze_nominalization
 from .collocations import extract_collocations, extract_keywords
-from .stats_analysis import compare_groups
+from .stats_analysis import compare_groups, adjust_pvalues
 from .plots import create_comparison_plot, keyword_barplot
 
 
@@ -79,6 +79,7 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         tokens = pos_result['words']
         sentences = pos_result['sentences']
         pos_counts = pos_result['pos_counts']
+        pos_tokens = pos_result.get('pos_tokens')
         doc = pos_result['doc']
         
         # Store for later use
@@ -92,7 +93,7 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         pos_features = compute_pos_features(pos_counts, basic_metrics['word_count'])
         
         # Nominalization analysis
-        nominal_results = analyze_nominalization(doc=doc, tokens=tokens)
+        nominal_results = analyze_nominalization(doc=doc, tokens=tokens, pos_tokens=pos_tokens)
         
         # Extract collocations (top 10 per document)
         collocations = extract_collocations(tokens, top_n=10)
@@ -176,6 +177,14 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
             comparison = compare_groups(group_0, group_1, metric_name=metric)
             stats_results.append(comparison)
         
+        if stats_results:
+            welch_adj = adjust_pvalues([r['welch_ttest']['p_value'] for r in stats_results])
+            mann_adj = adjust_pvalues([r['mann_whitney']['p_value'] for r in stats_results])
+
+            for result, w_adj, m_adj in zip(stats_results, welch_adj, mann_adj):
+                result['welch_ttest']['p_value_adj'] = w_adj
+                result['mann_whitney']['p_value_adj'] = m_adj
+
         print(f"  Completed statistical tests for {len(stats_results)} metrics")
     else:
         stats_results = []
@@ -240,9 +249,14 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
                 'std_group_1': result['welch_ttest']['std_b'],
                 't_statistic': result['welch_ttest']['t_statistic'],
                 'p_value': result['welch_ttest']['p_value'],
+                'p_value_adj': result['welch_ttest'].get('p_value_adj'),
                 'cohen_d': result['cohen_d'],
                 'u_statistic': result['mann_whitney']['u_statistic'],
-                'mw_p_value': result['mann_whitney']['p_value']
+                'mw_p_value': result['mann_whitney']['p_value'],
+                'mw_p_value_adj': result['mann_whitney'].get('p_value_adj'),
+                'mean_diff': result['ci_95']['mean_diff'],
+                'ci_lower': result['ci_95']['ci_lower'],
+                'ci_upper': result['ci_95']['ci_upper']
             })
         
         stats_df = pd.DataFrame(stats_summary)

@@ -1,12 +1,17 @@
-"""
-Nominalization detection module.
+"""Nominalization detection utilities (lemma-based + suffix heuristics).
 
-Two methods:
-1. spaCy lemma-based: nouns whose lemmas are also verbs
-2. Suffix-based heuristic: common nominalization suffixes
+Formulas implemented here:
+- **Verb-derived nominal ratio** = (verb-derived noun count) / (total noun count)
+- **Suffix counts** = Σ 1[token endswith suffix ∧ token_POS ∈ {NOUN, PROPN}]
 """
 
-from typing import Dict, List, Optional
+from functools import lru_cache
+from typing import Dict, List, Optional, Sequence, Tuple
+
+try:
+    from nltk.corpus import wordnet as wn
+except ImportError:  # pragma: no cover - optional dependency
+    wn = None
 
 
 # Common nominalization suffixes
@@ -46,7 +51,7 @@ def detect_nominals_spacy(doc):
             'examples': []
         }
     
-    # Collect all verb lemmas
+    # Collect all verb lemmas present in the document
     verb_lemmas = set()
     for token in doc:
         if token.pos_ == 'VERB' and not token.is_punct and not token.is_space:
@@ -60,7 +65,8 @@ def detect_nominals_spacy(doc):
         if token.pos_ in ('NOUN', 'PROPN') and not token.is_punct and not token.is_space:
             all_nouns.append(token)
             
-            if token.lemma_.lower() in verb_lemmas:
+            lemma = token.lemma_.lower()
+            if lemma in verb_lemmas or _lemma_has_verb_derivation(lemma):
                 nominalizations.append((token.text, token.lemma_))
     
     all_noun_count = len(all_nouns)
@@ -74,7 +80,7 @@ def detect_nominals_spacy(doc):
     }
 
 
-def detect_nominals_suffix(tokens):
+def detect_nominals_suffix(tokens: Sequence[str], pos_tokens: Optional[Sequence[Tuple[str, str, str]]] = None):
     """
     Detect nominalizations using suffix-based heuristic.
     
@@ -102,8 +108,18 @@ def detect_nominals_suffix(tokens):
     
     suffix_counts = {suffix: 0 for suffix in NOMINALIZATION_SUFFIXES}
     nominal_tokens = []
+
+    # Limit to noun/proper-noun tokens when POS annotations are available
+    noun_indices = None
+    if pos_tokens:
+        noun_indices = {
+            idx for idx, (_, pos, _) in enumerate(pos_tokens)
+            if pos in ('NOUN', 'PROPN')
+        }
     
-    for token in tokens:
+    for idx, token in enumerate(tokens):
+        if noun_indices is not None and idx not in noun_indices:
+            continue
         token_lower = token.lower()
         
         # Check each suffix
@@ -116,14 +132,14 @@ def detect_nominals_suffix(tokens):
     total_nominals = len(nominal_tokens)
     
     return {
-        'all_noun_count': len(tokens),  # Approximation
+        'all_noun_count': len(noun_indices) if noun_indices is not None else len(tokens),
         'nominal_from_verb': total_nominals,
         'suffix_counts': suffix_counts,
         'examples': list(set(nominal_tokens))[:20]  # Unique examples, limited
     }
 
 
-def analyze_nominalization(doc=None, tokens=None):
+def analyze_nominalization(doc=None, tokens=None, pos_tokens=None):
     """
     Comprehensive nominalization analysis using available methods.
     
@@ -148,6 +164,28 @@ def analyze_nominalization(doc=None, tokens=None):
         results['lemma_based'] = detect_nominals_spacy(doc)
     
     if tokens is not None:
-        results['suffix_based'] = detect_nominals_suffix(tokens)
+        results['suffix_based'] = detect_nominals_suffix(tokens, pos_tokens=pos_tokens)
     
     return results
+
+
+@lru_cache(maxsize=4096)
+def _lemma_has_verb_derivation(lemma: str) -> bool:
+    """Return True if WordNet lists a verb derivation for the given noun lemma."""
+    if not wn:
+        return False
+
+    try:
+        synsets = wn.synsets(lemma, pos=wn.NOUN)
+    except LookupError:  # WordNet data missing
+        return False
+
+    for syn in synsets:
+        for syn_lemma in syn.lemmas():
+            for related in syn_lemma.derivationally_related_forms():
+                try:
+                    if related.synset().pos() == 'v':
+                        return True
+                except LookupError:
+                    continue
+    return False

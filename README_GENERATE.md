@@ -38,8 +38,8 @@ pip install -r requirements.txt
 # Download spaCy model
 python -m spacy download en_core_web_sm
 
-# Download NLTK data
-python -c "import nltk; nltk.download('punkt'); nltk.download('averaged_perceptron_tagger')"
+# Download NLTK data (tokenizers + WordNet for nominalization)
+python -c "import nltk; nltk.download('punkt'); nltk.download('averaged_perceptron_tagger'); nltk.download('wordnet'); nltk.download('omw-1.4')"
 ```
 
 ### Google Colab

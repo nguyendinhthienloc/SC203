@@ -1,5 +1,8 @@
-"""
-Collocations and keyword extraction module.
+"""Collocations and keyword extraction module.
+
+Key formulas:
+- **PMI(x,y)** = log2( P(x,y) / (P(x) * P(y)) ) with probabilities estimated from corpus counts.
+- **Log-odds with Haldane-Anscombe** adds 0.5 pseudo-count to each cell before computing odds ratios.
 """
 
 import math
@@ -126,6 +129,8 @@ def log_odds_ratio(counts_A, counts_B, correction=0.5):
     Compute log-odds ratio with Haldane-Anscombe correction.
     
     Log-odds ratio measures keyness of words between two corpora.
+    Formula: log2( ( (f_A + c) / (N_A + c*V) ) / ( (f_B + c) / (N_B + c*V) ) )
+    where c is the correction term, N_x is total tokens in corpus x, V is vocab size.
     
     Parameters
     ----------

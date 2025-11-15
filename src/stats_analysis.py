@@ -1,11 +1,11 @@
-"""
-Statistical analysis module.
+"""Statistical analysis helpers used in the IRAL replication.
 
-Implements:
-- Welch's t-test
-- Mann-Whitney U test
-- Cohen's d effect size
-- Confidence intervals
+Implemented formulas:
+- **Welch's t-test**: t = (\bar{x}-\bar{y}) / sqrt(s_x^2/n_x + s_y^2/n_y)
+- **Mann-Whitney U** per SciPy (non-parametric location test)
+- **Cohen's d**: d = (\bar{x}-\bar{y}) / s_pooled
+- **Mean difference CI** (Welch) using t_{1-\alpha/2, df}
+- **FDR-BH correction** for multiple comparisons
 """
 
 import numpy as np
@@ -247,3 +247,41 @@ def compare_groups(group_a, group_b, metric_name="metric"):
     }
     
     return results
+
+
+def adjust_pvalues(p_values, method="fdr_bh"):
+    """Adjust a list of p-values for multiple comparisons.
+
+    Parameters
+    ----------
+    p_values : list of float
+        Raw p-values in the order they were computed.
+    method : str, default="fdr_bh"
+        Currently only Benjamini-Hochberg FDR is implemented.
+
+    Returns
+    -------
+    list of float
+        Adjusted p-values (NaN preserved for missing inputs).
+    """
+    if method != "fdr_bh":
+        raise ValueError("Only Benjamini-Hochberg correction is supported")
+
+    indexed = [(idx, p) for idx, p in enumerate(p_values) if not np.isnan(p)]
+    m = len(indexed)
+    adjusted = [np.nan] * len(p_values)
+
+    if m == 0:
+        return adjusted
+
+    # Sort by p-value ascending
+    ranked = sorted(indexed, key=lambda x: x[1])
+
+    # Benjamini-Hochberg step-up procedure
+    prev = 1.0
+    for rank, (idx, p) in enumerate(reversed(ranked), start=1):
+        bh_value = min(prev, (p * m) / (m - rank + 1))
+        prev = bh_value
+        adjusted[idx] = bh_value
+
+    return adjusted

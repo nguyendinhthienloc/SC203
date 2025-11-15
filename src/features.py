@@ -1,5 +1,11 @@
-"""
-Lexical features computation module.
+"""Lexical feature computations used across the IRAL replication.
+
+Formulas implemented:
+- **word_count** = Σ 1[token]
+- **sentence_count** = Σ 1[sentence]
+- **avg_sentence_len** = word_count / sentence_count
+- **avg_word_len** = (Σ len(token)) / word_count
+- **type_token_ratio** = |unique(tokens)| / word_count
 """
 
 from typing import List
@@ -75,13 +81,7 @@ def compute_pos_features(pos_counts, total_words):
     Returns
     -------
     dict
-        Dictionary containing:
-        - noun_count: number of nouns
-        - verb_count: number of verbs
-        - adj_count: number of adjectives
-        - adv_count: number of adverbs
-        - noun_ratio: proportion of nouns
-        - verb_ratio: proportion of verbs
+        Dictionary containing counts plus ratios computed as count / total_words.
     """
     if total_words == 0:
         return {
