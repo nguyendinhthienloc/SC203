@@ -15,22 +15,25 @@ This module ties together all analysis steps:
 """
 
 import os
+import logging
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
 
-from .ingest import ingest
+from .ingest import ingest, validate_inputs
 from .clean import clean_text
-from .pos_tools import tokenize_and_pos
+from .pos_tools import tokenize_and_pos, tokenize_and_pos_pipe
 from .features import compute_basic_metrics, compute_pos_features
 from .nominalization import analyze_nominalization
 from .collocations import extract_collocations, extract_keywords
-from .stats_analysis import compare_groups, adjust_pvalues
+from .stats_analysis import compare_groups, adjust_pvalues, set_random_seed
 from .plots import create_comparison_plot, keyword_barplot
 from .plots_iral import create_three_iral_figures, cleanup_old_figures
 
 
-def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results"):
+def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results", nominalization_mode: str = "balanced",
+                 collocation_min_count: int = 5, skip_keywords: bool = False, min_freq_keywords: int = None,
+                 batch_size: int = 32, n_process: int = 1, seed: int = None, verbose: bool = True, debug: bool = False):
     """
     Execute complete IRAL analysis pipeline.
     
@@ -50,77 +53,71 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
     pd.DataFrame
         Augmented dataframe with all computed features
     """
-    print("=" * 80)
-    print("IRAL Text Analysis Pipeline")
-    print("=" * 80)
+    # Logging setup
+    log_level = logging.DEBUG if debug else (logging.INFO if verbose else logging.WARNING)
+    logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s %(message)s")
+    logger = logging.getLogger("iral_pipeline")
+
+    logger.info("IRAL Text Analysis Pipeline starting")
+    if seed is not None:
+        set_random_seed(seed)
+        logger.info(f"Deterministic mode enabled with seed={seed}")
     
     # Step 1: Ingest data
-    print("\n[1/10] Ingesting data...")
+    logger.info("[1/10] Ingesting data")
     df = ingest(input_path, textcol=textcol, labelcol=labelcol)
-    print(f"  Loaded {len(df)} documents")
-    print(f"  Label distribution: {df[labelcol].value_counts().to_dict()}")
+    df = validate_inputs(df, textcol=textcol, labelcol=labelcol)
+    logger.info(f"Loaded {len(df)} documents")
+    logger.info(f"Label distribution: {df[labelcol].value_counts().to_dict()}")
     
     # Step 2: Clean text
-    print("\n[2/10] Cleaning text...")
+    logger.info("[2/10] Cleaning text")
     df['cleaned_text'] = df['text'].apply(clean_text)
     
-    # Step 3-6: Process each document
-    print("\n[3/10] Processing documents...")
-    
+    # Step 3-6: Process documents with batched spaCy pipe
+    logger.info("[3/10] Processing documents (batched)")
+
+    texts = df['cleaned_text'].tolist()
+    pos_results_batch = tokenize_and_pos_pipe(texts, batch_size=batch_size, n_process=n_process)
+
     results_list = []
     docs_list = []
     tokens_list = []
-    
-    for idx, row in tqdm(df.iterrows(), total=len(df), desc="  Processing"):
-        text = row['cleaned_text']
-        
-        # Tokenize and POS tag
-        pos_result = tokenize_and_pos(text)
-        
+
+    for (idx, row), pos_result in zip(df.iterrows(), pos_results_batch):
         tokens = pos_result['words']
         sentences = pos_result['sentences']
         pos_counts = pos_result['pos_counts']
         pos_tokens = pos_result.get('pos_tokens')
         doc = pos_result['doc']
-        
-        # Store for later use
+
         tokens_list.append(tokens)
         docs_list.append(doc)
-        
-        # Compute basic metrics
+
         basic_metrics = compute_basic_metrics(tokens, sentences)
-        
-        # Compute POS features
         pos_features = compute_pos_features(pos_counts, basic_metrics['word_count'])
-        
-        # Nominalization analysis
-        nominal_results = analyze_nominalization(doc=doc, tokens=tokens, pos_tokens=pos_tokens)
-        
-        # Extract collocations (top 10 per document)
-        collocations = extract_collocations(tokens, top_n=10)
-        
-        # Combine all features
+        nominal_results = analyze_nominalization(doc=doc, tokens=tokens, pos_tokens=pos_tokens, mode=nominalization_mode)
+        collocations = extract_collocations(tokens, top_n=10, min_count=collocation_min_count)
+
         result = {
             'id': row['id'],
             'label': row[labelcol],
             **basic_metrics,
             **pos_features
         }
-        
-        # Add nominalization features
+
         if nominal_results['lemma_based']:
             result['nominal_lemma_count'] = nominal_results['lemma_based']['nominal_from_verb']
             result['nominal_lemma_ratio'] = nominal_results['lemma_based']['nominal_ratio']
         else:
             result['nominal_lemma_count'] = 0
             result['nominal_lemma_ratio'] = 0.0
-        
+
         if nominal_results['suffix_based']:
             result['nominal_suffix_count'] = nominal_results['suffix_based']['nominal_from_verb']
         else:
             result['nominal_suffix_count'] = 0
-        
-        # Store top collocation
+
         if collocations['top_collocations']:
             top_coll = collocations['top_collocations'][0]
             result['top_collocation'] = f"{top_coll[0][0]} {top_coll[0][1]}"
@@ -128,15 +125,15 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         else:
             result['top_collocation'] = ""
             result['top_collocation_pmi'] = 0.0
-        
+
         results_list.append(result)
     
     # Create results dataframe
     results_df = pd.DataFrame(results_list)
     
     # Step 7: Keywords analysis (across groups)
-    print("\n[4/10] Extracting keywords...")
-    if labelcol in results_df.columns and results_df[labelcol].nunique() == 2:
+    logger.info("[4/10] Extracting keywords")
+    if not skip_keywords and labelcol in results_df.columns and results_df[labelcol].nunique() == 2:
         # Split by label
         labels = sorted(results_df[labelcol].unique())
         label_0_indices = results_df[results_df[labelcol] == labels[0]].index
@@ -146,17 +143,21 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         tokens_1 = [token for idx in label_1_indices for token in tokens_list[idx]]
         
         # Use lower min_freq for small datasets
-        min_freq = 2 if len(results_df) < 10 else 5
+        default_min_freq = 2 if len(results_df) < 10 else 5
+        min_freq = min_freq_keywords if min_freq_keywords is not None else default_min_freq
         keywords = extract_keywords(tokens_0, tokens_1, min_freq=min_freq)
         
-        print(f"  Extracted {len(keywords['keywords_A'])} keywords for group {labels[0]}")
-        print(f"  Extracted {len(keywords['keywords_B'])} keywords for group {labels[1]}")
+        logger.info(f"Extracted {len(keywords['keywords_A'])} keywords for group {labels[0]}")
+        logger.info(f"Extracted {len(keywords['keywords_B'])} keywords for group {labels[1]}")
     else:
         keywords = None
-        print("  Skipping keyword extraction (requires exactly 2 groups)")
+        if skip_keywords:
+            logger.warning("Skipping keyword extraction (--skip-keywords)")
+        else:
+            logger.warning("Skipping keyword extraction (requires exactly 2 groups)")
     
     # Step 8: Statistical analysis
-    print("\n[5/10] Running statistical tests...")
+    logger.info("[5/10] Running statistical tests")
     
     if labelcol in results_df.columns and results_df[labelcol].nunique() == 2:
         labels = sorted(results_df[labelcol].unique())
@@ -188,13 +189,13 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
                 result['welch_ttest']['p_value_adj'] = w_adj
                 result['mann_whitney']['p_value_adj'] = m_adj
 
-        print(f"  Completed statistical tests for {len(stats_results)} metrics")
+        logger.info(f"Completed statistical tests for {len(stats_results)} metrics")
     else:
         stats_results = []
         print("  Skipping statistical tests (requires exactly 2 groups)")
     
     # Step 9: Create visualizations (IRAL 3-figure style)
-    print("\n[6/10] Creating IRAL-style visualizations...")
+    logger.info("[6/10] Creating IRAL-style visualizations")
     
     figures_dir = os.path.join(outdir, "figures")
     os.makedirs(figures_dir, exist_ok=True)
@@ -219,19 +220,19 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
             # Clean up old individual metric plots
             cleanup_old_figures(figures_dir)
         else:
-            print("  ⚠ Skipping keyword figures (no keywords extracted)")
+            logger.warning("Skipping keyword figures (no keywords extracted)")
         
-        print(f"  ✓ Created 3 IRAL figures in {figures_dir}")
+        logger.info(f"Created IRAL figures in {figures_dir}")
     else:
-        print("  Skipping visualizations (requires exactly 2 groups)")
+        logger.warning("Skipping visualizations (requires exactly 2 groups)")
     
     # Step 10: Export results
-    print("\n[7/10] Exporting results...")
+    logger.info("[7/10] Exporting results")
     
     # Export augmented CSV
     output_csv = os.path.join(outdir, "human_vs_ai_augmented.csv")
     results_df.to_csv(output_csv, index=False)
-    print(f"  Saved augmented data to {output_csv}")
+    logger.info(f"Saved augmented data to {output_csv}")
     
     # Export statistical results
     if stats_results:
@@ -261,7 +262,7 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         stats_df = pd.DataFrame(stats_summary)
         stats_csv = os.path.join(tables_dir, "statistical_tests.csv")
         stats_df.to_csv(stats_csv, index=False)
-        print(f"  Saved statistical tests to {stats_csv}")
+        logger.info(f"Saved statistical tests to {stats_csv}")
     
     # Export keywords
     if keywords:
@@ -275,15 +276,13 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         keywords_1_csv = os.path.join(tables_dir, "keywords_group_1.csv")
         keywords_1_df.to_csv(keywords_1_csv, index=False)
         
-        print(f"  Saved keywords to {tables_dir}")
+        logger.info(f"Saved keywords to {tables_dir}")
     
-    print("\n" + "=" * 80)
-    print("Pipeline completed successfully!")
-    print("=" * 80)
-    print(f"\nResults saved to: {outdir}")
-    print(f"  - Augmented CSV: {output_csv}")
-    print(f"  - Figures: {figures_dir}")
+    logger.info("Pipeline completed successfully")
+    logger.info(f"Results saved to: {outdir}")
+    logger.info(f"Augmented CSV: {output_csv}")
+    logger.info(f"Figures: {figures_dir}")
     if stats_results or keywords:
-        print(f"  - Tables: {os.path.join(outdir, 'tables')}")
+        logger.info(f"Tables: {os.path.join(outdir, 'tables')}")
     
     return results_df

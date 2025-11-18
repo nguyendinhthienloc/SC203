@@ -9,6 +9,8 @@ import math
 from collections import Counter, defaultdict
 from typing import List, Dict, Tuple
 
+EPSILON = 1e-9
+
 
 def bigram_counts(tokens):
     """
@@ -71,12 +73,13 @@ def compute_pmi(bigram_counts, unigram_counts, total_bigrams, min_count=5):
         p_xy = count / total_bigrams
         
         # P(x) and P(y)
-        p_x = unigram_counts[word1] / total_words
-        p_y = unigram_counts[word2] / total_words
+        p_x = unigram_counts[word1] / total_words if total_words else 0
+        p_y = unigram_counts[word2] / total_words if total_words else 0
         
         # PMI calculation
         if p_x > 0 and p_y > 0:
-            pmi = math.log2(p_xy / (p_x * p_y))
+            denom = (p_x * p_y) if (p_x * p_y) > 0 else EPSILON
+            pmi = math.log2(max(p_xy, EPSILON) / denom)
             pmi_scores.append((bigram, pmi))
     
     # Sort by PMI descending
@@ -85,7 +88,7 @@ def compute_pmi(bigram_counts, unigram_counts, total_bigrams, min_count=5):
     return pmi_scores
 
 
-def extract_collocations(tokens, top_n=50):
+def extract_collocations(tokens, top_n=50, min_count: int = 5):
     """
     Extract top collocations from token list.
     
@@ -116,7 +119,7 @@ def extract_collocations(tokens, top_n=50):
     total_bigrams = len(tokens) - 1
     
     # Compute PMI
-    pmi_scores = compute_pmi(bigrams, unigrams, total_bigrams)
+    pmi_scores = compute_pmi(bigrams, unigrams, total_bigrams, min_count=min_count)
     
     return {
         'bigrams': pmi_scores,
@@ -168,11 +171,14 @@ def log_odds_ratio(counts_A, counts_B, correction=0.5):
         freq_B = counts_B.get(word, 0) + correction
         
         # Normalize by corpus size
-        prop_A = freq_A / (total_A + correction * len(all_words))
-        prop_B = freq_B / (total_B + correction * len(all_words))
+        denom_A = (total_A + correction * len(all_words)) or EPSILON
+        denom_B = (total_B + correction * len(all_words)) or EPSILON
+        prop_A = freq_A / denom_A
+        prop_B = freq_B / denom_B
         
         # Log-odds ratio
-        log_odds = math.log2(prop_A / prop_B)
+        ratio = prop_A / prop_B if prop_B > 0 else (prop_A / EPSILON)
+        log_odds = math.log2(max(ratio, EPSILON))
         
         log_odds_scores[word] = log_odds
     

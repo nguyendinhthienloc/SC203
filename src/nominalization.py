@@ -21,13 +21,19 @@ NOMINALIZATION_SUFFIXES = [
 ]
 
 
-def detect_nominals_spacy(doc):
+def detect_nominals_spacy(doc, mode: str = "balanced", context_window: int = 5):
     """
     Detect nominalizations using spaCy lemma-based method.
     
-    A noun is considered a nominalization if:
-    - It is tagged as NOUN or PROPN
-    - Its lemma also appears as a VERB lemma in the document
+    Modes
+    -----
+    strict:
+        Count a noun as nominalization only if (lemma present as verb in doc OR WordNet derivation) AND
+        a verb token occurs within ±context_window whose lemma matches the noun lemma.
+    balanced (default):
+        Count if lemma present as verb in doc OR WordNet shows verb derivation.
+    lenient:
+        Count if (balanced criteria) OR suffix heuristic match (checked downstream; here same as balanced).
     
     Parameters
     ----------
@@ -53,20 +59,45 @@ def detect_nominals_spacy(doc):
     
     # Collect all verb lemmas present in the document
     verb_lemmas = set()
-    for token in doc:
+    verb_positions = []
+    for i, token in enumerate(doc):
         if token.pos_ == 'VERB' and not token.is_punct and not token.is_space:
-            verb_lemmas.add(token.lemma_.lower())
+            lemma_low = token.lemma_.lower()
+            verb_lemmas.add(lemma_low)
+            verb_positions.append((i, lemma_low))
     
     # Find nouns whose lemmas are also verbs
     all_nouns = []
     nominalizations = []
     
-    for token in doc:
+    for i, token in enumerate(doc):
         if token.pos_ in ('NOUN', 'PROPN') and not token.is_punct and not token.is_space:
             all_nouns.append(token)
-            
             lemma = token.lemma_.lower()
-            if lemma in verb_lemmas or _lemma_has_verb_derivation(lemma):
+            has_doc_verb = lemma in verb_lemmas
+            has_wordnet = _lemma_has_verb_derivation(lemma)
+
+            qualifies = False
+            if mode == "strict":
+                if (has_doc_verb or has_wordnet):
+                    # Context window check
+                    left = max(0, i - context_window)
+                    right = min(len(doc), i + context_window + 1)
+                    context_lemmas = {doc[j].lemma_.lower() for j in range(left, right)
+                                      if doc[j].pos_ == 'VERB' and not doc[j].is_punct and not doc[j].is_space}
+                    if lemma in context_lemmas:
+                        qualifies = True
+            elif mode == "balanced":
+                if has_doc_verb or has_wordnet:
+                    qualifies = True
+            elif mode == "lenient":
+                if has_doc_verb or has_wordnet:
+                    qualifies = True
+            else:  # Fallback to balanced if unknown
+                if has_doc_verb or has_wordnet:
+                    qualifies = True
+
+            if qualifies:
                 nominalizations.append((token.text, token.lemma_))
     
     all_noun_count = len(all_nouns)
@@ -139,7 +170,7 @@ def detect_nominals_suffix(tokens: Sequence[str], pos_tokens: Optional[Sequence[
     }
 
 
-def analyze_nominalization(doc=None, tokens=None, pos_tokens=None):
+def analyze_nominalization(doc=None, tokens=None, pos_tokens=None, mode: str = "balanced", context_window: int = 5):
     """
     Comprehensive nominalization analysis using available methods.
     
@@ -161,7 +192,7 @@ def analyze_nominalization(doc=None, tokens=None, pos_tokens=None):
     }
     
     if doc is not None:
-        results['lemma_based'] = detect_nominals_spacy(doc)
+        results['lemma_based'] = detect_nominals_spacy(doc, mode=mode, context_window=context_window)
     
     if tokens is not None:
         results['suffix_based'] = detect_nominals_suffix(tokens, pos_tokens=pos_tokens)

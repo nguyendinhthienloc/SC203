@@ -10,6 +10,19 @@ Implemented formulas:
 
 import numpy as np
 from scipy import stats
+import random
+
+
+def set_random_seed(seed: int):
+    """Set random seeds for reproducibility across numpy and random.
+
+    Parameters
+    ----------
+    seed : int
+        Seed value.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
 
 
 def cohen_d(a, b):

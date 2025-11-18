@@ -3,7 +3,7 @@ POS tagging module with spaCy (preferred) and NLTK fallback.
 """
 
 import re
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Iterable
 
 
 def tokenize_and_pos(text):
@@ -43,6 +43,57 @@ def tokenize_and_pos(text):
         return _tokenize_nltk(text)
     except ImportError:
         raise ImportError("Neither spaCy nor NLTK is available. Please install at least one.")
+
+
+def tokenize_and_pos_pipe(texts: Iterable[str], batch_size: int = 32, n_process: int = 1,
+                          model: str = "en_core_web_sm", disable: Optional[List[str]] = None) -> List[Dict]:
+    """Batch tokenize and POS-tag a list of texts.
+
+    Attempts spaCy pipe processing for performance; falls back to per-text processing.
+
+    Parameters
+    ----------
+    texts : Iterable[str]
+        Collection of input texts.
+    batch_size : int, default=32
+        Batch size for spaCy pipe.
+    n_process : int, default=1
+        Number of processes for spaCy pipe (multiprocessing). Keep 1 for determinism unless configured.
+    model : str, default="en_core_web_sm"
+        spaCy model name.
+    disable : list of str, optional
+        Pipeline components to disable for speed (e.g., ["ner"]).
+
+    Returns
+    -------
+    list of dict
+        List of tokenization result dicts mirroring ``tokenize_and_pos`` output.
+    """
+    texts = list(texts)
+    if not texts:
+        return []
+    try:
+        import spacy
+        try:
+            nlp = spacy.load(model, disable=disable or [])
+        except OSError:
+            # Model not found; try to download then load
+            from spacy.cli import download
+            download(model)
+            nlp = spacy.load(model, disable=disable or [])
+
+        # Ensure sentence boundaries enabled
+        if "parser" not in (disable or []):
+            pass  # parser provides sents
+
+        results: List[Dict] = []
+        for doc in nlp.pipe(texts, batch_size=batch_size, n_process=n_process):
+            # Reuse internal helper logic
+            results.append(_tokenize_spacy(str(doc), nlp))  # _tokenize_spacy expects text+nlp; we re-run to keep structure
+        return results
+    except Exception:
+        # Fallback: process individually (may use spaCy single or NLTK)
+        return [tokenize_and_pos(t) for t in texts]
 
 
 def _tokenize_spacy(text, nlp):

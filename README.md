@@ -40,7 +40,7 @@ This pipeline implements comprehensive linguistic analysis:
 - Python 3.8 or higher
 - pip package manager
 
-### Local Environment
+### Local Environment (Development Install)
 
 ```bash
 # Clone the repository
@@ -58,7 +58,10 @@ python -m venv venv
 # Linux/Mac:
 source venv/bin/activate
 
-# Install dependencies
+# Editable install (preferred for development)
+pip install -e .[dev]
+
+# Or fallback to requirements.txt
 pip install -r requirements.txt
 
 # Download language models and data
@@ -96,6 +99,52 @@ python scripts/analyze_nominalization.py \
 python scripts/analyze_nominalization.py \
     --input data/raw/ \
     --outdir results/
+
+### Advanced CLI Flags
+
+```bash
+# Enable batching + multi-process (if spaCy supports it)
+python scripts/analyze_nominalization.py --input my.csv --batch-size 64 --n-process 2 \
+  --nominalization-mode strict --seed 42 --outdir results/
+
+# Skip keyword extraction for faster runs
+python scripts/analyze_nominalization.py --input my.csv --skip-keywords
+
+# Force minimum frequency for keywords
+python scripts/analyze_nominalization.py --input my.csv --min-freq-keywords 3
+
+# Load overrides from YAML config (values override CLI flags)
+python scripts/analyze_nominalization.py --input my.csv --config config.yml
+```
+
+Flag summary:
+
+| Flag | Purpose |
+|------|---------|
+| `--batch-size` | Control spaCy pipe batch size (performance tuning) |
+| `--n-process` | Parallel spaCy processes (CPU permitting) |
+| `--collocation-min-count` | Minimum bigram frequency for PMI filtering |
+| `--min-freq-keywords` | Override default keyword min frequency |
+| `--nominalization-mode` | Detection strictness: `strict`, `balanced`, `lenient` |
+| `--seed` | Deterministic mode (affects random sampling/order) |
+| `--skip-keywords` | Disable keyword extraction stage entirely |
+| `--verbose` / `--debug` | Logging verbosity control |
+| `--config` | YAML file with flag overrides |
+| `--save-intermediates` | (Reserved) Persist intermediate artifacts |
+
+### Determinism & Reproducibility
+
+Setting `--seed` initializes Python, NumPy, and (where applicable) other libraries for reproducible runs. All randomized ordering (e.g., document traversal) becomes stable across executions.
+
+### Benchmarking
+
+Run synthetic benchmarks to assess scaling:
+
+```bash
+python benchmarks/benchmark_pipeline.py --sizes 10 100 500 --repeats 2
+```
+
+Outputs CSV with mean, min, max duration (and memory deltas if `psutil` installed).
 ```
 
 ### Python API
@@ -317,6 +366,14 @@ pytest tests/test_nominalization.py -v
 pytest --cov=src tests/
 ```
 
+### Formatting & Lint
+
+```bash
+black .
+isort .
+flake8 src scripts tests
+```
+
 ## 📚 Citation
 
 If you use this code in your research, please cite:
@@ -361,3 +418,7 @@ Nguyen Dinh Thien Loc - [GitHub](https://github.com/nguyendinhthienloc)
 ---
 
 **Note**: This implementation extends Zhang (2024) with additional features including WordNet-based nominalization detection, FDR correction for multiple comparisons, and comprehensive visualization capabilities.
+
+## 🔄 Changelog
+
+See `CHANGELOG.md` for a full list of versions and enhancements.

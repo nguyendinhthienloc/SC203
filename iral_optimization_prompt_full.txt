@@ -1,0 +1,179 @@
+# Task brief — Improve, optimize and harden the IRAL replication codebase
+
+Use this prompt when asking an engineer, Copilot, or a contractor to make concrete improvements to the repository that reproduces Zhang (IRAL 2024). The goal is to keep existing behavior and outputs but make the code: faster, more robust, better tested, easier to install/use, maintainable, and production-ready. Apply changes across the repository (`src/`), tests, CI, packaging and docs.
+
+---
+
+## Goals (high-level)
+1. **Performance:** make the pipeline scale to hundreds–thousands of documents without excessive slowdown.  
+2. **Robustness & correctness:** validate inputs, tighten corner-case handling (empty samples, missing columns, zero-counts in log-odds), reduce false positives in nominalization heuristics.  
+3. **Reproducibility & logging:** deterministic behavior when requested, structured logging, and reproducible outputs.  
+4. **Quality & maintainability:** type hints, docstrings, consistent style, linting, and unit tests with CI.  
+5. **Usability:** clear CLI, helpful error messages, optional dependency handling, and packaging notes.
+
+---
+
+## Repository targets
+Assume project layout from README_GENERATE.md. Primary files to edit:
+- `src/run_pipeline.py`
+- `src/pos_tools.py`
+- `src/nominalization.py`
+- `src/clean.py`
+- `src/collocations.py`
+- `src/stats_analysis.py`
+- `src/ingest.py`
+- `src/plots_iral.py` / `src/plots.py`
+- `scripts/analyze_nominalization.py`
+- add/update `tests/`
+- add `.github/workflows/ci.yml`
+
+---
+
+## Concrete required changes
+
+### 1) Replace per-document `iterrows()` with **spaCy nlp.pipe batching**
+- Add `tokenize_and_pos_pipe()` in `pos_tools.py`.
+- In `run_pipeline.py`, batch-process all texts:
+  ```python
+  texts = df['cleaned_text'].tolist()
+  pos_results = tokenize_and_pos_pipe(texts, batch_size=32, n_process=1)
+  ```
+- Preserve existing output schema.
+
+---
+
+### 2) Add **input validation**
+Implement `validate_inputs(df, textcol, labelcol)`:
+- Ensure required columns exist.
+- Drop empty texts with warning.
+- Auto-generate `id` column if missing.
+- Validate labels; warn or fix gracefully.
+
+---
+
+### 3) Improve **nominalization detection**
+- Reduce false positives via:
+  - WordNet verb-sense checks.
+  - Context window check (±5 tokens).
+  - Mode switch (`strict`, `balanced`, `lenient`).
+- Fallback to suffix rules if spaCy unavailable.
+
+---
+
+### 4) Harden **log-odds & collocations**
+- Ensure stable Haldane–Anscombe correction.
+- Add epsilon `1e-9` to avoid division-by-zero.
+- Add parameter `min_freq` (default 2).
+- Add unit tests comparing known contingency tables.
+
+---
+
+### 5) Improve **statistical functions**
+- Ensure consistent NaN returns.
+- Deterministic behavior via seeding.
+- Add `random_state` to sampling operations.
+
+---
+
+### 6) Add **logging & deterministic mode**
+- Replace all `print()` calls with `logging`.
+- Add `--verbose` / `--debug` flags.
+- Add `--seed` to set random seeds across libs.
+- Log versions of Python and major dependencies.
+
+---
+
+### 7) Upgrade **CLI**
+Enhance `scripts/analyze_nominalization.py`:
+- Add flags:  
+  `--input`, `--textcol`, `--labelcol`, `--outdir`,  
+  `--batch-size`, `--n-process`, `--min-freq`,  
+  `--nominalization-mode`, `--seed`,  
+  `--skip-keywords`, `--save-intermediates`.
+- Add optional `config.yaml`.
+
+---
+
+### 8) Add **pytest unit tests**
+Create in `tests/`:
+- test_clean_remove_citations
+- test_tokenize_pipe_equivalence
+- test_nominalization_cases
+- test_log_odds
+- test_stats_edge_cases
+- tiny synthetic end-to-end test
+
+---
+
+### 9) Add **GitHub Actions CI**
+Workflow steps:
+- Install Python (3.10+)
+- Install deps (minimal + optional spaCy)
+- Run `pytest -q`
+- Run `flake8`
+- Run `black --check`
+
+---
+
+### 10) Packaging improvements
+- Add `requirements-dev.txt`.
+- Add optional extras for spaCy / plotting in pyproject.
+- Add `entry_points` for CLI use.
+
+---
+
+### 11) Formatting & type hints
+- Apply `black`, `isort`, `flake8`.
+- Add type hints to all public functions.
+- Add module-level docstrings.
+
+---
+
+### 12) Add **benchmarks**
+Add `benchmarks/benchmark_pipeline.py`:
+- Measure runtime for 10/100/500 documents.
+- Report CPU time & memory.
+
+---
+
+### 13) Acceptance criteria
+A PR is considered complete when:
+- All tests pass in CI.
+- No linting errors.
+- Runtime improved by ≥3× for 500 docs.
+- No unhandled exceptions on missing `id`, missing `label`, or empty texts.
+- Updated README, CHANGELOG, tests, and CI.
+
+---
+
+### 14) Deliverables in the PR
+- Updated code across modules.
+- Added tests.
+- Added CI workflow.
+- Added benchmark script.
+- Added README + CHANGELOG updates.
+- Results of before/after benchmark in PR description.
+
+---
+
+### 15) Example PR Description
+```
+Title: Optimize IRAL pipeline: batched spaCy, validation, nominalization fixes, CI, tests, benchmarks
+
+Summary:
+- Replaced iterrows processing with spaCy nlp.pipe; 3–10× faster.
+- Added input validation (textcol, labelcol, id generation).
+- Improved nominalization detection (WordNet + context).
+- Hardened log-odds math.
+- Added pytest suite + CI.
+- Added logging + reproducibility flags.
+- Added benchmarks and documentation updates.
+
+Benchmarks:
+- Before: Xs for 500 docs
+- After: Ys for 500 docs (Z% improvement)
+```
+
+---
+
+Use this brief as-is when instructing Copilot or any developer to improve and optimize the IRAL replication codebase.

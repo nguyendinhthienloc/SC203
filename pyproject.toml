@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sc203-iral-pipeline"
+version = "0.2.0"
+description = "IRAL Text Analysis Pipeline reproduction with batching, validation, nominalization modes, collocations, statistics, CLI"
+readme = "README.md"
+authors = [ { name = "Nguyen Dinh Thien Loc" } ]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+keywords = ["NLP", "linguistics", "nominalization", "spaCy", "text-analysis"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Science/Research",
+  "Topic :: Text Processing :: Linguistic"
+]
+dependencies = [
+  "spacy>=3.5",
+  "nltk>=3.8",
+  "pandas>=1.5",
+  "numpy>=1.23",
+  "scipy>=1.9",
+  "scikit-learn>=1.2",
+  "matplotlib>=3.6",
+  "seaborn>=0.12",
+  "PyYAML>=6.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "flake8>=6.0",
+  "black>=23.0",
+  "isort>=5.12",
+  "psutil>=5.9"
+]
+
+[project.scripts]
+analyze-nominalization = "scripts.analyze_nominalization:main"
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
