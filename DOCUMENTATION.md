@@ -907,6 +907,41 @@ adjusted_p = adjust_pvalues(p_values, method="fdr_bh")
 
 ---
 
+## 3.5. Methodological Extensions Beyond Zhang (2024)
+
+### 📊 Original vs. Extended Metrics
+
+**Zhang (2024) Original Metrics (3):**
+
+1. **Word Frequency** - Raw counts of word occurrences across corpora
+2. **Collocations (Bigrams)** - Frequently co-occurring word pairs scored by PMI
+3. **Keyword Analysis (Log-Odds Ratio)** - Distinctive words per group with Haldane-Anscombe correction
+
+**Extended Metrics Introduced in HC3 Analysis (9):**
+
+**Lexical Metrics (5):**
+- `word_count` - Total words per document
+- `sentence_count` - Total sentences per document
+- `avg_sentence_len` - Average sentence length (words per sentence)
+- `avg_word_len` - Average word length (characters per word)
+- `type_token_ratio` - Vocabulary diversity (unique words / total words)
+
+**POS Metrics (4):**
+- `noun_ratio` - Proportion of nouns in text
+- `verb_ratio` - Proportion of verbs in text
+- `adj_ratio` - Proportion of adjectives in text (computed but not plotted)
+- `adv_ratio` - Proportion of adverbs in text (computed but not plotted)
+
+**Nominalization Metrics (2):**
+- `nominal_lemma_ratio` - Lemma-based nominalization detection (verb-derived nouns)
+- `nominal_suffix_count` - Suffix-based heuristic detection (-tion, -ment, -ence, etc.)
+
+### Why These Extensions?
+
+These 9 additional metrics were introduced to **strengthen cross-domain comparisons** and provide **more granular linguistic signals** for distinguishing human from AI writing. While Zhang (2024) focused primarily on nominalization patterns in academic essays, the HC3 medical Q&A dataset required broader feature coverage to capture stylistic differences across genres. Lexical metrics reveal length and complexity differences (AI writes 2.1× longer), POS ratios track syntactic patterns (human uses more action verbs), and dual nominalization methods provide both precision (lemma-based) and coverage (suffix-based) for detecting formal register. Together, these extensions enable robust statistical testing across 12 dimensions while maintaining full compatibility with Zhang's core methodology.
+
+---
+
 ## 4. Complete Workflow
 
 ### 🔄 Step-by-Step Execution Flow
