@@ -23,10 +23,10 @@ This analysis uses the **HC3 (Human-ChatGPT Comparison Corpus)** dataset, a larg
 
 ---
 
-## 📊 Conclusions About Log-Odds Ratios
+## Conclusions About Log-Odds Ratios
 
 ### Key Findings from Keyword Analysis:
-### 🔍 Human-Distinctive Keywords (Negative Log-Odds)
+### Human-Distinctive Keywords (Negative Log-Odds)
 
 **Top 5 Human Markers:**
 
@@ -48,7 +48,7 @@ This analysis uses the **HC3 (Human-ChatGPT Comparison Corpus)** dataset, a larg
 
 ---
 
-### 🤖 AI-Distinctive Keywords (Positive Log-Odds)
+### AI-Distinctive Keywords (Positive Log-Odds)
 
 **Top 5 AI Markers:**
 
@@ -70,7 +70,7 @@ This analysis uses the **HC3 (Human-ChatGPT Comparison Corpus)** dataset, a larg
 
 ---
 
-## 📈 Statistical Significance of Differences
+## Statistical Significance of Differences
 
 | Metric | Human | AI | Significance | Interpretation |
 |--------|-------|-----|--------------|----------------|
@@ -84,21 +84,21 @@ This analysis uses the **HC3 (Human-ChatGPT Comparison Corpus)** dataset, a larg
 
 ---
 
-## 🎯 Key Conclusions
+## Key Conclusions
 
-### 1. Length Difference ⭐⭐⭐
+### 1. Length Difference
 
 - AI responses are significantly longer (112% increase)
 - This is the strongest discriminator between human and AI medical writing
 
-### 2. Vocabulary Diversity ⭐⭐⭐
+### 2. Vocabulary Diversity
 
 - Human doctors use richer vocabulary (TTR = 0.746 vs 0.534)
 - AI tends to repeat formal phrases and disclaimers
 
-### 3. Nominalization Pattern ⭐⭐
+### 3. Nominalization Pattern
 
-- Contradicts Zhang (2024) finding: In HC3 medical data, AI uses more nominalizations
+- In HC3 medical data, AI uses more nominalizations
 - Suggests AI adopts more "formal" academic style in medical contexts
 
 ### 4. Linguistic Style
@@ -113,7 +113,7 @@ This analysis uses the **HC3 (Human-ChatGPT Comparison Corpus)** dataset, a larg
 - Keywords like "hope", "hello", "suggest" are strong human signals
 
 ---
-## 📝 Research Implications
+## Research Implications
 
 ### For Detection Models
 
@@ -133,12 +133,12 @@ This analysis uses the **HC3 (Human-ChatGPT Comparison Corpus)** dataset, a larg
 
 ---
 
-## 💡 Bottom Line
+## Bottom Line
 
 Log-odds ratios successfully reveal that **AI medical writing is formal, verbose, and cautious**, while **human medical writing is concise, personal, and action-oriented**. The odds ratios provide strong discriminative power for distinguishing human from AI-generated medical text.
 
 ---
 
-## 📖 References
+## References
 
 Guo, B., Zhang, X., Wang, Z., Jiang, M., Nie, J., Ding, Y., Yue, J., & Wu, Y. (2023). How Close is ChatGPT to Human Experts? Comparison Corpus, Evaluation, and Detection. *arXiv preprint arXiv:2301.07597*.
