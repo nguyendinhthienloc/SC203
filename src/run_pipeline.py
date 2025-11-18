@@ -27,6 +27,7 @@ from .nominalization import analyze_nominalization
 from .collocations import extract_collocations, extract_keywords
 from .stats_analysis import compare_groups, adjust_pvalues
 from .plots import create_comparison_plot, keyword_barplot
+from .plots_iral import create_three_iral_figures, cleanup_old_figures
 
 
 def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results"):
@@ -144,7 +145,9 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         tokens_0 = [token for idx in label_0_indices for token in tokens_list[idx]]
         tokens_1 = [token for idx in label_1_indices for token in tokens_list[idx]]
         
-        keywords = extract_keywords(tokens_0, tokens_1, min_freq=5)
+        # Use lower min_freq for small datasets
+        min_freq = 2 if len(results_df) < 10 else 5
+        keywords = extract_keywords(tokens_0, tokens_1, min_freq=min_freq)
         
         print(f"  Extracted {len(keywords['keywords_A'])} keywords for group {labels[0]}")
         print(f"  Extracted {len(keywords['keywords_B'])} keywords for group {labels[1]}")
@@ -190,8 +193,8 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         stats_results = []
         print("  Skipping statistical tests (requires exactly 2 groups)")
     
-    # Step 9: Create visualizations
-    print("\n[6/10] Creating visualizations...")
+    # Step 9: Create visualizations (IRAL 3-figure style)
+    print("\n[6/10] Creating IRAL-style visualizations...")
     
     figures_dir = os.path.join(outdir, "figures")
     os.makedirs(figures_dir, exist_ok=True)
@@ -204,25 +207,21 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results")
         if labels[0] == 0 and labels[1] == 1:
             label_names = {0: "Human", 1: "AI"}
         
-        metrics_to_plot = [
-            'word_count', 'avg_sentence_len', 'type_token_ratio',
-            'noun_ratio', 'verb_ratio', 'nominal_lemma_ratio'
-        ]
-        
-        create_comparison_plot(results_df, labelcol, metrics_to_plot, 
-                              figures_dir, label_names=label_names)
-        
-        # Keyword plots
+        # Create the 3 main IRAL figures
         if keywords:
-            keyword_barplot(keywords['keywords_A'], 
-                          os.path.join(figures_dir, 'keywords_group_0.png'),
-                          title=f"Top Keywords - {label_names[labels[0]]}")
+            create_three_iral_figures(
+                keywords['keywords_A'],
+                keywords['keywords_B'],
+                figures_dir,
+                label_names=label_names
+            )
             
-            keyword_barplot(keywords['keywords_B'],
-                          os.path.join(figures_dir, 'keywords_group_1.png'),
-                          title=f"Top Keywords - {label_names[labels[1]]}")
+            # Clean up old individual metric plots
+            cleanup_old_figures(figures_dir)
+        else:
+            print("  ⚠ Skipping keyword figures (no keywords extracted)")
         
-        print(f"  Created visualizations in {figures_dir}")
+        print(f"  ✓ Created 3 IRAL figures in {figures_dir}")
     else:
         print("  Skipping visualizations (requires exactly 2 groups)")
     

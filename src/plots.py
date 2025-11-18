@@ -1,5 +1,5 @@
 """
-Visualization module for generating plots.
+Visualization module for generating IRAL-style publication-quality plots.
 """
 
 import os
@@ -10,15 +10,39 @@ import seaborn as sns
 from scipy import stats
 
 
-# Set style
-sns.set_style("whitegrid")
-sns.set_context("notebook")
+# Set IRAL journal style
+plt.rcParams.update({
+    'font.family': 'serif',
+    'font.serif': ['Times New Roman', 'DejaVu Serif'],
+    'font.size': 10,
+    'axes.labelsize': 11,
+    'axes.titlesize': 12,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 10,
+    'figure.titlesize': 12,
+    'axes.linewidth': 1.0,
+    'grid.linewidth': 0.5,
+    'lines.linewidth': 1.5,
+    'patch.linewidth': 1.0,
+    'xtick.major.width': 1.0,
+    'ytick.major.width': 1.0,
+    'xtick.minor.width': 0.5,
+    'ytick.minor.width': 0.5,
+})
+
+sns.set_style("whitegrid", {
+    'grid.linestyle': ':',
+    'grid.linewidth': 0.5,
+    'grid.color': '#CCCCCC'
+})
+sns.set_palette("colorblind")
 
 
 def boxplot_by_label(df, label_col, metric_col, outpath, 
                      label_names=None, title=None):
     """
-    Create boxplot comparing metric across labels.
+    Create IRAL-style boxplot comparing metric across labels.
     
     Parameters
     ----------
@@ -35,7 +59,7 @@ def boxplot_by_label(df, label_col, metric_col, outpath,
     title : str, optional
         Plot title
     """
-    plt.figure(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=300)
     
     # Prepare data
     if label_names:
@@ -44,30 +68,46 @@ def boxplot_by_label(df, label_col, metric_col, outpath,
     else:
         df_plot = df
     
-    # Create boxplot
-    sns.boxplot(data=df_plot, x=label_col, y=metric_col, palette="Set2")
+    # Create boxplot with IRAL styling
+    box_colors = ['#E8E8E8', '#B8B8B8']  # Light gray shades for professional look
+    bp = sns.boxplot(
+        data=df_plot, 
+        x=label_col, 
+        y=metric_col, 
+        palette=box_colors,
+        width=0.5,
+        linewidth=1.5,
+        fliersize=4,
+        ax=ax
+    )
     
-    # Add title
+    # Customize appearance
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.grid(axis='y', alpha=0.3, linestyle=':', linewidth=0.5)
+    ax.set_axisbelow(True)
+    
+    # Format labels
+    ylabel = _format_metric_name(metric_col)
+    ax.set_xlabel('')  # Remove x-axis label for cleaner look
+    ax.set_ylabel(ylabel, fontweight='normal')
+    
+    # Add subtle title if provided (IRAL style: minimal titles)
     if title:
-        plt.title(title, fontsize=14, fontweight='bold')
-    else:
-        plt.title(f'{metric_col} by {label_col}', fontsize=14, fontweight='bold')
-    
-    plt.xlabel(label_col.capitalize(), fontsize=12)
-    plt.ylabel(metric_col.replace('_', ' ').title(), fontsize=12)
+        ax.set_title(title, pad=10, fontweight='normal', fontsize=11)
     
     plt.tight_layout()
     
     # Save figure
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    plt.savefig(outpath, dpi=300, bbox_inches='tight')
+    plt.savefig(outpath, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close()
 
 
 def bar_with_ci(df, label_col, metric_col, outpath,
                 label_names=None, title=None, alpha=0.05):
     """
-    Create bar plot with confidence intervals.
+    Create IRAL-style bar plot with 95% confidence intervals.
     
     Parameters
     ----------
@@ -86,7 +126,7 @@ def bar_with_ci(df, label_col, metric_col, outpath,
     alpha : float, default=0.05
         Significance level for confidence intervals
     """
-    plt.figure(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=300)
     
     # Calculate means and confidence intervals
     groups = df.groupby(label_col)[metric_col]
@@ -111,42 +151,65 @@ def bar_with_ci(df, label_col, metric_col, outpath,
     else:
         plot_labels = [str(label) for label in means.index]
     
-    # Create bar plot
+    # Create bar plot with IRAL styling
     x_pos = np.arange(len(means))
-    colors = sns.color_palette("Set2", len(means))
+    bar_colors = ['#D0D0D0', '#909090']  # Professional gray scale
     
-    bars = plt.bar(x_pos, means.values, yerr=[ci[label] for label in means.index],
-                   capsize=10, color=colors, edgecolor='black', linewidth=1.5)
+    bars = ax.bar(
+        x_pos, 
+        means.values, 
+        yerr=[ci[label] for label in means.index],
+        capsize=5,
+        color=bar_colors,
+        edgecolor='black',
+        linewidth=1.0,
+        error_kw={'linewidth': 1.5, 'ecolor': 'black'}
+    )
     
-    # Add value labels on bars
-    for i, (bar, val) in enumerate(zip(bars, means.values)):
+    # Customize appearance
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.grid(axis='y', alpha=0.3, linestyle=':', linewidth=0.5)
+    ax.set_axisbelow(True)
+    
+    # Format labels
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(plot_labels)
+    ax.set_xlabel('')  # Remove x-axis label for cleaner look
+    
+    ylabel = _format_metric_name(metric_col)
+    ax.set_ylabel(ylabel, fontweight='normal')
+    
+    # Add value labels on bars (more subtle)
+    for i, (bar, val, ci_val) in enumerate(zip(bars, means.values, [ci[label] for label in means.index])):
         height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2., height,
-                f'{val:.2f}',
-                ha='center', va='bottom', fontsize=10, fontweight='bold')
+        # Position label above error bar
+        label_height = height + ci_val + ax.get_ylim()[1] * 0.02
+        ax.text(
+            bar.get_x() + bar.get_width()/2., 
+            label_height,
+            f'{val:.2f}',
+            ha='center', 
+            va='bottom', 
+            fontsize=9,
+            fontweight='normal'
+        )
     
-    plt.xticks(x_pos, plot_labels)
-    
-    # Add title
+    # Add subtle title if provided
     if title:
-        plt.title(title, fontsize=14, fontweight='bold')
-    else:
-        plt.title(f'{metric_col} by {label_col}', fontsize=14, fontweight='bold')
-    
-    plt.xlabel(label_col.capitalize(), fontsize=12)
-    plt.ylabel(metric_col.replace('_', ' ').title(), fontsize=12)
+        ax.set_title(title, pad=10, fontweight='normal', fontsize=11)
     
     plt.tight_layout()
     
     # Save figure
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    plt.savefig(outpath, dpi=300, bbox_inches='tight')
+    plt.savefig(outpath, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close()
 
 
 def keyword_barplot(keywords, outpath, title="Top Keywords", top_n=20):
     """
-    Create horizontal bar plot of keywords with scores.
+    Create IRAL-style horizontal bar plot of keywords with log-odds scores.
     
     Parameters
     ----------
@@ -167,31 +230,53 @@ def keyword_barplot(keywords, outpath, title="Top Keywords", top_n=20):
     keywords = keywords[:top_n]
     words, scores = zip(*keywords)
     
-    plt.figure(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(8, 10), dpi=300)
     
-    # Create horizontal bar plot
+    # Create horizontal bar plot with IRAL styling
     y_pos = np.arange(len(words))
-    colors = ['#2ecc71' if s > 0 else '#e74c3c' for s in scores]
     
-    plt.barh(y_pos, scores, color=colors, edgecolor='black', linewidth=0.5)
-    plt.yticks(y_pos, words)
-    plt.xlabel('Log-Odds Ratio', fontsize=12)
-    plt.title(title, fontsize=14, fontweight='bold')
+    # Professional grayscale coloring
+    colors = ['#606060' if s > 0 else '#A0A0A0' for s in scores]
     
-    # Add vertical line at x=0
-    plt.axvline(x=0, color='black', linestyle='--', linewidth=1)
+    bars = ax.barh(
+        y_pos, 
+        scores, 
+        color=colors, 
+        edgecolor='black', 
+        linewidth=0.8
+    )
+    
+    # Customize appearance
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(words, fontsize=10)
+    ax.set_xlabel('Log-Odds Ratio', fontweight='normal', fontsize=11)
+    ax.set_title(title, pad=10, fontweight='normal', fontsize=11)
+    
+    # Remove top and right spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    # Add vertical reference line at x=0
+    ax.axvline(x=0, color='black', linestyle='-', linewidth=1.0, alpha=0.7)
+    
+    # Add subtle grid
+    ax.grid(axis='x', alpha=0.3, linestyle=':', linewidth=0.5)
+    ax.set_axisbelow(True)
+    
+    # Invert y-axis so highest scores are at top
+    ax.invert_yaxis()
     
     plt.tight_layout()
     
     # Save figure
     os.makedirs(os.path.dirname(outpath), exist_ok=True)
-    plt.savefig(outpath, dpi=300, bbox_inches='tight')
+    plt.savefig(outpath, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close()
 
 
 def create_comparison_plot(df, label_col, metrics, outdir, label_names=None):
     """
-    Create multiple comparison plots for a list of metrics.
+    Create multiple IRAL-style comparison plots for a list of metrics.
     
     Parameters
     ----------
@@ -219,3 +304,43 @@ def create_comparison_plot(df, label_col, metrics, outdir, label_names=None):
         # Bar plot with CI
         bar_path = os.path.join(outdir, f'{metric}_barplot.png')
         bar_with_ci(df, label_col, metric, bar_path, label_names)
+
+
+def _format_metric_name(metric_col):
+    """
+    Format metric name for publication-quality display.
+    
+    Parameters
+    ----------
+    metric_col : str
+        Raw metric column name (e.g., 'noun_ratio')
+    
+    Returns
+    -------
+    str
+        Formatted metric name (e.g., 'Noun Ratio')
+    """
+    # Special cases for academic terminology
+    replacements = {
+        'type_token_ratio': 'Type-Token Ratio (TTR)',
+        'ttr': 'Type-Token Ratio (TTR)',
+        'avg_sentence_len': 'Average Sentence Length',
+        'avg_word_len': 'Average Word Length',
+        'word_count': 'Word Count',
+        'sentence_count': 'Sentence Count',
+        'noun_ratio': 'Noun Ratio',
+        'verb_ratio': 'Verb Ratio',
+        'adj_ratio': 'Adjective Ratio',
+        'adv_ratio': 'Adverb Ratio',
+        'nominal_lemma_ratio': 'Nominalization Ratio',
+        'nominal_ratio': 'Nominalization Ratio',
+        'noun_count': 'Noun Count',
+        'verb_count': 'Verb Count',
+        'nominal_suffix_count': 'Nominal Suffix Count'
+    }
+    
+    if metric_col in replacements:
+        return replacements[metric_col]
+    
+    # Default: title case with underscores replaced
+    return metric_col.replace('_', ' ').title()
