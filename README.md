@@ -76,6 +76,17 @@ results/
     └── keywords_group_1.csv
 ```
 
+## 📊 Metric Comparison: Zhang (2024) vs. This Reproduction
+
+| Source         | Metric Families / Types | Description |
+|----------------|------------------------|-------------|
+| **Zhang (2024)** | 3                    | Word Frequency, Collocations (Count, Lambda, Z-score), Keyword Analysis (Log-Odds Ratio) |
+| **This Project** | 11                   | Word Count, Sentence Count, TTR, Mean Sentence Length, Average Word Length, POS Distributions, Nominalization Count (lemma-based), Nominalization Count (suffix-based), Bigram PMI, Keyword Log-Odds Ratio, Effect Size & Significance Tests |
+
+- Zhang’s metrics are grouped into 3 families (word frequency, collocations, keywords).
+- This reproduction expands to 11 distinct metric types, including morphosyntactic, lexical, collocation, keyword, and statistical comparison metrics.
+- New metrics/features: POS distributions, nominalization (suffix-based, strict/balanced/lenient), effect size/statistical tests, and more detailed lexical metrics.
+
 ## 📐 Key Metrics
 
 **Nominalization Ratio** (Primary metric)
