@@ -76,7 +76,7 @@ results/
     └── keywords_group_1.csv
 ```
 
-## 📊 Metric Comparison: Zhang (2024) vs. This Reproduction
+## 📊 Metric Comparison: Zhang (2024) vs. This Replication
 
 | Source         | Metric Families / Types | Description |
 |----------------|------------------------|-------------|
