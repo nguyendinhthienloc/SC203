@@ -5,7 +5,7 @@
 
 A Python implementation of Zhang (2024)'s IRAL methodology for linguistic analysis of human vs. AI-generated texts, focusing on nominalization detection, lexical diversity, and statistical comparison.
 
-> 📖 **[See PROJECT_GUIDE.md for comprehensive documentation](PROJECT_GUIDE.md)** - Detailed explanations of all files, data science concepts, NLP metrics, and future plans.
+> 📖 **[See PROJECT_GUIDE.md for comprehensive documentation](docs/PROJECT_GUIDE.md)** - Detailed explanations of all files, data science concepts, NLP metrics, and future plans.
 
 ## ✨ Features
 
