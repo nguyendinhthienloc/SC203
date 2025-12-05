@@ -16,7 +16,7 @@ from openai import OpenAI
 
 
 # Initialize OpenAI client
-client = OpenAI(api_key="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")  # Replace with your OpenAI API key
+client = OpenAI(api_key="")  # Replace with your OpenAI API key
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
