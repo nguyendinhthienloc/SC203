@@ -27,11 +27,6 @@ wheels/
 .ipynb_checkpoints
 *.ipynb_checkpoints
 
-# Data
-data/raw/*.csv
-data/raw/*.txt
-data/cleaned/
-data/derived/
 
 # Results
 results/figures/*.png
