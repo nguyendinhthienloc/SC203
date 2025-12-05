@@ -59,3 +59,8 @@ htmlcov/
 *.tmp
 test_input.csv
 results_test/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
