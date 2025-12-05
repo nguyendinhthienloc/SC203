@@ -21,7 +21,7 @@ except ImportError:
     logging.warning("OpenAI package not installed. GECS features will be disabled.")
 
 # OpenAI API key from user's gecs.py
-API_KEY = "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"
+API_KEY = ""
 
 # Initialize OpenAI client and Rouge scorer
 if OPENAI_AVAILABLE:
