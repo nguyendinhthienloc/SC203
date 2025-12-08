@@ -298,3 +298,73 @@ def adjust_pvalues(p_values, method="fdr_bh"):
         adjusted[idx] = bh_value
 
     return adjusted
+
+
+def gecs_classification_metrics(rouge2_scores, labels, threshold=0.924):
+    """
+    Compute classification metrics for GECS scores.
+    
+    Using Rouge-2 score as a binary classifier:
+    - Score >= threshold → Predicted as AI (1)
+    - Score < threshold → Predicted as Human (0)
+    
+    Parameters
+    ----------
+    rouge2_scores : array-like
+        Rouge-2 F-scores for all texts
+    labels : array-like
+        True binary labels (0=human, 1=AI)
+    threshold : float, default=0.924
+        Classification threshold (scores >= threshold are classified as AI)
+    
+    Returns
+    -------
+    dict
+        Classification metrics including:
+        - accuracy, precision, recall, f1_score
+        - confusion_matrix: [[TN, FP], [FN, TP]]
+        - threshold: the threshold used
+    """
+    rouge2_scores = np.array(rouge2_scores)
+    labels = np.array(labels)
+    
+    # Filter out None/NaN values
+    valid_mask = ~np.isnan(rouge2_scores)
+    rouge2_scores = rouge2_scores[valid_mask]
+    labels = labels[valid_mask]
+    
+    if len(rouge2_scores) == 0:
+        return {
+            'accuracy': np.nan,
+            'precision': np.nan,
+            'recall': np.nan,
+            'f1_score': np.nan,
+            'confusion_matrix': [[np.nan, np.nan], [np.nan, np.nan]],
+            'threshold': threshold,
+            'n_samples': 0
+        }
+    
+    # Make predictions
+    predictions = (rouge2_scores >= threshold).astype(int)
+    
+    # Compute metrics
+    from sklearn.metrics import (
+        accuracy_score, precision_score, recall_score, 
+        f1_score, confusion_matrix
+    )
+    
+    accuracy = accuracy_score(labels, predictions)
+    precision = precision_score(labels, predictions, zero_division=0)
+    recall = recall_score(labels, predictions, zero_division=0)
+    f1 = f1_score(labels, predictions, zero_division=0)
+    cm = confusion_matrix(labels, predictions).tolist()
+    
+    return {
+        'accuracy': float(accuracy),
+        'precision': float(precision),
+        'recall': float(recall),
+        'f1_score': float(f1),
+        'confusion_matrix': cm,
+        'threshold': threshold,
+        'n_samples': len(rouge2_scores)
+    }

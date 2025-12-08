@@ -29,11 +29,13 @@ from .collocations import extract_collocations, extract_keywords
 from .stats_analysis import compare_groups, adjust_pvalues, set_random_seed
 from .plots import create_comparison_plot, keyword_barplot
 from .plots_iral import create_three_iral_figures, cleanup_old_figures
+from .gec_score import compute_gecs_features_batch, gecs_statistical_summary
 
 
 def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results", nominalization_mode: str = "balanced",
                  collocation_min_count: int = 5, skip_keywords: bool = False, min_freq_keywords: int = None,
-                 batch_size: int = 32, n_process: int = 1, seed: int = None, verbose: bool = True, debug: bool = False):
+                 batch_size: int = 32, n_process: int = 1, seed: int = None, verbose: bool = True, debug: bool = False,
+                 enable_gecs: bool = False, gecs_model: str = "gpt-4o-mini"):
     """
     Execute complete IRAL analysis pipeline.
     
@@ -47,6 +49,11 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results",
         Column name for labels (CSV only)
     outdir : str, default="results"
         Output directory for results
+    enable_gecs : bool, default=False
+        Enable Grammar Error Correction Score (GECS) features
+        Requires OpenAI API and adds GEC Rouge-2 scores
+    gecs_model : str, default="gpt-4o-mini"
+        OpenAI model to use for grammar correction
     
     Returns
     -------
@@ -131,8 +138,42 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results",
     # Create results dataframe
     results_df = pd.DataFrame(results_list)
     
+    # Step 6.5: GECS Analysis (if enabled)
+    if enable_gecs:
+        logger.info("[4/10] Computing GECS features (Grammar Error Correction)")
+        logger.info("This may take several minutes depending on dataset size...")
+        
+        gecs_results = compute_gecs_features_batch(
+            df['cleaned_text'].tolist(),
+            model=gecs_model,
+            verbose=verbose
+        )
+        
+        results_df['gec_text'] = [r['gec_text'] for r in gecs_results]
+        results_df['gec_rouge2_score'] = [r['gec_rouge2_score'] for r in gecs_results]
+        
+        # Log GECS statistics
+        valid_scores = [s for s in results_df['gec_rouge2_score'] if s is not None]
+        if valid_scores:
+            logger.info(f"GECS computed for {len(valid_scores)}/{len(results_df)} documents")
+            logger.info(f"Mean Rouge-2 score: {np.mean(valid_scores):.4f} (std: {np.std(valid_scores):.4f})")
+            
+            if labelcol in results_df.columns and results_df[labelcol].nunique() == 2:
+                gecs_stats = gecs_statistical_summary(
+                    results_df['gec_rouge2_score'].fillna(np.nan).tolist(),
+                    results_df[labelcol].tolist()
+                )
+                logger.info(f"GECS by group:")
+                logger.info(f"  Human: {gecs_stats['human_mean']:.4f} ± {gecs_stats['human_std']:.4f}")
+                logger.info(f"  AI:    {gecs_stats['ai_mean']:.4f} ± {gecs_stats['ai_std']:.4f}")
+                logger.info(f"  Difference: {gecs_stats['difference']:.4f} (Cohen's d: {gecs_stats['effect_size']:.4f})")
+        else:
+            logger.warning("GECS computation failed for all documents")
+    else:
+        logger.info("[4/10] GECS features disabled (use enable_gecs=True to enable)")
+    
     # Step 7: Keywords analysis (across groups)
-    logger.info("[4/10] Extracting keywords")
+    logger.info("[5/10] Extracting keywords")
     if not skip_keywords and labelcol in results_df.columns and results_df[labelcol].nunique() == 2:
         # Split by label
         labels = sorted(results_df[labelcol].unique())
@@ -157,7 +198,7 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results",
             logger.warning("Skipping keyword extraction (requires exactly 2 groups)")
     
     # Step 8: Statistical analysis
-    logger.info("[5/10] Running statistical tests")
+    logger.info("[6/10] Running statistical tests")
     
     if labelcol in results_df.columns and results_df[labelcol].nunique() == 2:
         labels = sorted(results_df[labelcol].unique())
@@ -168,6 +209,10 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results",
             'noun_count', 'verb_count', 'noun_ratio', 'verb_ratio',
             'nominal_lemma_count', 'nominal_lemma_ratio', 'nominal_suffix_count'
         ]
+        
+        # Add GECS score if enabled
+        if enable_gecs and 'gec_rouge2_score' in results_df.columns:
+            metrics_to_test.append('gec_rouge2_score')
         
         stats_results = []
         
@@ -195,7 +240,7 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results",
         print("  Skipping statistical tests (requires exactly 2 groups)")
     
     # Step 9: Create visualizations (IRAL 3-figure style)
-    logger.info("[6/10] Creating IRAL-style visualizations")
+    logger.info("[7/10] Creating IRAL-style visualizations")
     
     figures_dir = os.path.join(outdir, "figures")
     os.makedirs(figures_dir, exist_ok=True)
@@ -227,7 +272,7 @@ def run_pipeline(input_path, textcol="text", labelcol="label", outdir="results",
         logger.warning("Skipping visualizations (requires exactly 2 groups)")
     
     # Step 10: Export results
-    logger.info("[7/10] Exporting results")
+    logger.info("[8/10] Exporting results")
     
     # Export augmented CSV
     output_csv = os.path.join(outdir, "human_vs_ai_augmented.csv")

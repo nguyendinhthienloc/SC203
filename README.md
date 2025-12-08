@@ -187,6 +187,12 @@ pytest --cov=src tests/
   - Statistical methods deep dive
   - Future development roadmap
 
+- **[GECS_COMPLETE.md](GECS_COMPLETE.md)** - 🆕 GECS Integration Guide
+  - Grammar Error Correction Score feature
+  - Enhanced AI detection with OpenAI
+  - Setup and usage instructions
+  - See also: `docs/GECS_INTEGRATION.md`
+
 ## 📄 License
 
 MIT License - See [LICENSE](LICENSE) file
