@@ -31,6 +31,8 @@ def main():
     print(f"\n📂 Input: {input_path}")
     print(f"📊 Output: {outdir}/")
     print(f"🔧 Mode: balanced nominalization, seed=42, batch_size=64")
+    print(f"⚠️  GECS features: DISABLED (use enable_gecs=True to enable)")
+    print(f"    Note: GECS requires OpenAI API and takes longer to run")
     print("\nStarting analysis...\n")
     
     try:
