@@ -35,18 +35,25 @@ python -m spacy download en_core_web_sm
 
 ### Run Analysis
 
-**One-button run:**
+**🎯 Simple approach (NEW!):**
 ```bash
-python run.py  # Processes data/raw/sample_data.csv
+# Just put your CSV files in data/raw/ and run:
+python main.py
+
+# That's it! Automatically processes all datasets, generates results, and compares them.
+# See QUICK_START.md for more examples.
 ```
 
-**Command-line interface:**
+**Classic approaches:**
 ```bash
-python scripts/analyze_nominalization.py \
-    --input data/raw/your_data.csv \
-    --textcol text \
-    --labelcol label \
-    --outdir results/
+# Process all datasets with filter
+python main.py --dataset hc3  # Only HC3 datasets
+
+# Compare two datasets
+python main.py --compare hc3_finance hc3_medicine
+
+# Original single-dataset run
+python run.py  # Processes data/raw/sample_data.csv
 ```
 
 **Python API:**

@@ -215,8 +215,9 @@ noun_ratio = noun_count / word_count
 **Purpose:** Detect verb-derived nouns (nominalizations)  
 **Complexity:** High (200 lines)
 
-**Zhang (2024) Definition:**
-> "A noun is considered a nominalization if its lemma also appears as a verb in the document, OR if WordNet lists a verb as a derivationally related form."
+**Definition (project operational):**
+> This project uses the following operational definition (implementation heuristic): a noun is considered a nominalization if its lemma also appears as a verb in the document, OR if WordNet lists a verb as a derivationally related form.
+
 
 **Detection modes:**
 1. **Strict** - Requires verb in ±5 word context window
