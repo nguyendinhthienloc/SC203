@@ -64,3 +64,8 @@ results_test/
 .env
 .env.local
 .env.*.local
+
+# results
+results/*
+results_HC3/*
+results_sample/*

@@ -6,9 +6,10 @@ seaborn
 matplotlib
 spacy>=3.0
 nltk
-gensim
-wordfreq
-python-udpipe
 jupyterlab
 tqdm
 pytest
+python-dotenv
+openai
+rouge
+

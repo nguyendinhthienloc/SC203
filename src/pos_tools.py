@@ -34,7 +34,7 @@ def tokenize_and_pos(text):
         except OSError:
             # Model not downloaded, try NLTK
             pass
-    except ImportError:
+    except Exception:
         pass
     
     # Fallback to NLTK

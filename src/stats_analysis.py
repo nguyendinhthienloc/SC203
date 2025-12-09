@@ -59,6 +59,9 @@ def cohen_d(a, b):
     var_a = np.var(a, ddof=1) if n_a > 1 else 0
     var_b = np.var(b, ddof=1) if n_b > 1 else 0
     
+    if n_a + n_b <= 2:
+        return 0.0
+
     pooled_std = np.sqrt(((n_a - 1) * var_a + (n_b - 1) * var_b) / (n_a + n_b - 2))
     
     if pooled_std == 0:
